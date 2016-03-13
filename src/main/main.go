@@ -8,13 +8,19 @@ import (
 
 func main() {
 
-	var port int
+	var minutes int
+	var subreddit string
+	var exp string
+	var email string
 
-	flag.IntVar(&port, "Port", 8080, "Port the server listens to")
+	flag.IntVar(&minutes, "minutes", 30, "Period of checking")
+	flag.StringVar(&subreddit, "subreddit", "buildapcsales", "Subreddit to check")
+	flag.StringVar(&exp, "expression", "G502", "Non-case-sensitive expression to check for")
+	flag.StringVar(&email, "email", "taifighterm@gmail.com", "Email to send the notification to")
 
 	flag.Parse()
 
 	killChan := make(chan bool)
 
-	subredditCrawler.Run("buildapcsales", "G502", 30*time.Minute, killChan)
+	subredditCrawler.Run(subreddit, exp, email, time.Duration(minutes)*time.Minute, killChan)
 }

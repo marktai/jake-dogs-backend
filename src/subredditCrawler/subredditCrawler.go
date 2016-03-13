@@ -66,7 +66,7 @@ func GetMatchingPost(posts []Post, exp string) *Post {
 	return nil
 }
 
-func CheckAndEmail(subreddit, exp string) {
+func CheckAndEmail(subreddit, exp, recipient string) {
 	posts, err := GetPosts(subreddit)
 	if err != nil {
 		log.Println(err)
@@ -74,29 +74,29 @@ func CheckAndEmail(subreddit, exp string) {
 	}
 	if post := GetMatchingPost(posts, exp); post != nil {
 		var mail email.Email
-		mail.Subject = post.Data.Title + " " + time.Now().String()
-		mail.Recipient = "taifighterm@gmail.com"
+		mail.Subject = post.Data.Title + " " + time.Now().Format(time.ANSIC)
+		mail.Recipient = recipient
 		mail.Body = fmt.Sprintf("This post matches %s: \n%s\n\nThe reddit link is here: \n https://www.reddit.com%s", exp, post.Data.Url, post.Data.Permalink)
 
-		email.SendMail("mail.marktai.com:25", mail)
+		email.SendMail("www.marktai.com:25", mail)
 		log.Println(fmt.Sprintf("Sent email about %s", post.Data.Title))
 	} else {
 		log.Println(fmt.Sprintf("No matching post for %s", exp))
 	}
 }
 
-func Run(subreddit string, exp string, wait time.Duration, killChan chan bool) {
+func Run(subreddit string, exp string, recipient string, wait time.Duration, killChan chan bool) {
 
 	log.Println(fmt.Sprintf("Scanning /r/%s for %s every %s", subreddit, exp, wait.String()))
 
 	ticker := time.NewTicker(wait)
 
-	CheckAndEmail(subreddit, exp)
+	CheckAndEmail(subreddit, exp, recipient)
 
 	for {
 		select {
 		case <-ticker.C:
-			CheckAndEmail(subreddit, exp)
+			CheckAndEmail(subreddit, exp, recipient)
 		case <-killChan:
 			log.Println("Killing subredditCrawler")
 			ticker.Stop()
