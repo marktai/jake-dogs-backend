@@ -3,7 +3,9 @@ package subredditCrawler
 import (
 	"email"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/hashicorp/golang-lru"
 	"log"
 	"net/http"
 	"strings"
@@ -37,33 +39,75 @@ type PostData struct {
 	Permalink   string
 }
 
-func GetPosts(subreddit string) (posts []Post, err error) {
-	url := fmt.Sprintf("https://www.reddit.com/r/%s/new.json?sort=new", subreddit)
+var sentPosts, _ = lru.New(256)
+var firstBatch = true
 
-	res, err := http.Get(url)
-	if err != nil {
-		return
-	}
-	defer res.Body.Close()
+func GetPosts(subreddit string) ([]Post, error) {
+	url := fmt.Sprintf("https://www.reddit.com/r/%s/.json?sort=top&t=day", subreddit)
+	first := true
 
-	decoder := json.NewDecoder(res.Body)
-	var response subredditResponse
-	err = decoder.Decode(&response)
-	if err != nil {
-		return
-	}
+	var resp *http.Response
+	var err error
+	for { //reddit rate limits
+		if first {
+			first = false
+		}
 
-	posts = response.Data.Children
-	return
-}
-
-func GetMatchingPost(posts []Post, exp string) *Post {
-	for _, post := range posts {
-		if strings.Contains(strings.ToLower(post.Data.Title), strings.ToLower(exp)) {
-			return &post
+		resp, err = http.Get(url)
+		if resp != nil {
+			defer resp.Body.Close()
+		}
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == 200 {
+			break
+		} else if resp.StatusCode == 429 {
+			time.Sleep(30 * time.Second)
+			continue
+		} else {
+			return nil, errors.New(fmt.Sprintf("Error of %s", resp.Status))
 		}
 	}
-	return nil
+
+	decoder := json.NewDecoder(resp.Body)
+	/*body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}*/
+	var response subredditResponse
+	err = decoder.Decode(&response)
+	//err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	posts := response.Data.Children
+	if len(posts) == 0 {
+		log.Println("Retrying")
+		return GetPosts(subreddit)
+	}
+	return posts, nil
+}
+
+func GetMatchingPostsString(posts []Post, exp string) []Post {
+	retPosts := make([]Post, 0)
+	for _, post := range posts {
+		if strings.Contains(strings.ToLower(post.Data.Title), strings.ToLower(exp)) {
+			retPosts = append(retPosts, post)
+		}
+	}
+	return retPosts
+}
+
+func GetMatchingPostsPoints(posts []Post, threshold int) []Post {
+	retPosts := make([]Post, 0)
+	for _, post := range posts {
+		if post.Data.Score >= threshold {
+			retPosts = append(retPosts, post)
+		}
+	}
+	return retPosts
 }
 
 func CheckAndEmail(subreddit, exp, recipient string) {
@@ -72,14 +116,29 @@ func CheckAndEmail(subreddit, exp, recipient string) {
 		log.Println(err)
 		return
 	}
-	if post := GetMatchingPost(posts, exp); post != nil {
-		var mail email.Email
-		mail.Subject = post.Data.Title + " " + time.Now().Format(time.ANSIC)
-		mail.Recipient = recipient
-		mail.Body = fmt.Sprintf("This post matches %s: \n%s\n\nThe reddit link is here: \n https://www.reddit.com%s", exp, post.Data.Url, post.Data.Permalink)
 
-		email.SendMail("www.marktai.com:25", mail)
-		log.Println(fmt.Sprintf("Sent email about %s", post.Data.Title))
+	//if matchPosts := GetMatchingPostsString(posts, exp); matchPosts != nil && len(matchPosts) != 0 {
+	if matchPosts := GetMatchingPostsPoints(posts, 60); matchPosts != nil && len(matchPosts) != 0 {
+		for _, post := range matchPosts {
+			if seen := sentPosts.Contains(post.Data.Id); seen {
+				continue
+			}
+			var mail email.Email
+			mail.Subject = post.Data.Title + " " + time.Now().Format(time.ANSIC)
+			mail.Recipient = recipient
+			//mail.Body = fmt.Sprintf("This post matches %s: \n%s\n\nThe reddit link is here: \n https://www.reddit.com%s", exp, post.Data.Url, post.Data.Permalink)
+			mail.Body = fmt.Sprintf("This post has %d points: \n%s\n\nThe reddit link is here: \n https://www.reddit.com%s", post.Data.Score, post.Data.Url, post.Data.Permalink)
+
+			if !firstBatch {
+				err = email.SendMail("www.marktai.com:25", mail)
+				if err != nil {
+					log.Println(err)
+				}
+				log.Println(fmt.Sprintf("Sent email about %s", post.Data.Title))
+			}
+			sentPosts.Add(post.Data.Id, struct{}{})
+		}
+		firstBatch = false
 	} else {
 		log.Println(fmt.Sprintf("No matching post for %s", exp))
 	}

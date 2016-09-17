@@ -2,12 +2,12 @@ export GOPATH := $(shell pwd)
 default: build
 
 init:
-	rm -f bin/main bin/subredditCrawler 
+	rm -f bin/main bin/subredCrawler 
 	@cd src/main && go get
 
 build: init
-	go build -o bin/subredditCrawler src/main/main.go 
+	go build -o bin/subredCrawler src/main/main.go 
 
 run: build
-	@-pkill subredditCrawler
-	bin/subredditCrawler >>log.txt 2>&1 &
+	@-pkill subredCrawler
+	bin/subredCrawler >>log.txt 2>&1 &
