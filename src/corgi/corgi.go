@@ -83,6 +83,8 @@ func AddToList(url string, image_type string) bool {
 		return false
 	}
 
+	log.Printf("Adding %s", url)
+
 	seen[image_type].Add(url, struct{}{})
 
 	
