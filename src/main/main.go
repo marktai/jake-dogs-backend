@@ -1,26 +1,30 @@
 package main
 
 import (
+	"corgi"
 	"flag"
-	"subredditCrawler"
+	"server"
 	"time"
 )
 
 func main() {
 
 	var minutes int
-	var subreddit string
-	var exp string
-	var email string
+	var port int
 
-	flag.IntVar(&minutes, "minutes", 30, "Period of checking")
-	flag.StringVar(&subreddit, "subreddit", "buildapcsales", "Subreddit to check")
-	flag.StringVar(&exp, "expression", "G502", "Non-case-sensitive expression to check for")
-	flag.StringVar(&email, "email", "taifighterm@gmail.com", "Email to send the notification to")
+	var max_images int
+	var max_gifs int
+
+	flag.IntVar(&minutes, "minutes", 60, "Period of checking")
+	flag.IntVar(&port, "port", 8014, "Port that the server listens on")
+
+	flag.IntVar(&max_images, "max-images", 500, "Number of images that are stored at max")
+	flag.IntVar(&max_gifs, "max-gifs", 500, "Number of gifs that are stored at max")
 
 	flag.Parse()
 
-	killChan := make(chan bool)
+	timeout := time.Duration(minutes) * time.Minute
 
-	subredditCrawler.Run(subreddit, exp, email, time.Duration(minutes)*time.Minute, killChan)
+	corgi.Init(max_images, max_gifs, &timeout)
+	server.Run(port)
 }
