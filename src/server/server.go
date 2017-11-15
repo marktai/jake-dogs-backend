@@ -23,9 +23,6 @@ func Run(port int) {
 
 	r.HandleFunc("/image", getImage).Methods("GET")
 
-	r.HandleFunc("/gif", getGif).Methods("GET")
-	r.HandleFunc("/corgi.gif", getGif).Methods("GET")
-
 	for {
 		log.Printf("Running at 0.0.0.0:%d\n", port)
 		log.Println(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), r))
