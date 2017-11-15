@@ -1,6 +1,6 @@
-# Corgi Server
+# Jake Gyllenhaal can't hold dogs
 
-This is a CaaS (Corgi as a Service) Server
+While enjoying the night at a TBP Convention, I found out that Jake Gyllenhaal can't hold dogs.  So I made a website for it.
 
-While creating websites, I always used corgis as default images.  Now I can just call an endpoint and have a never ending stream of corgi images and gifs.
+This is the best drunk decision I've made
 
